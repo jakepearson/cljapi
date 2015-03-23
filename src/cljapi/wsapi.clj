@@ -39,13 +39,16 @@
                (keyword? value) (str "/slm/webservice/v2.0/" (name value))
                :default         (:_ref value))]
      (string/replace url (host-name) "")))
-  ([type oid]
-   (str (->ref type) "/" oid)))
+  ([value oid]
+   (str (->ref value) "/" oid)))
 
-(defn ->full-ref [value]
-  (->> value
-       ->ref
-       (str (host-name))))
+(defn ->full-ref
+  ([value]
+   (->> value
+        ->ref
+        (str (host-name))))
+  ([value oid]
+   (str (->full-ref value) "/" oid)))
 
 (defn user []
   (read-ref (->ref :user)))
@@ -69,11 +72,6 @@
 
 (defn scope [workspace]
   {:workspace workspace})
-
-(defn schema-types [workspace]
-  (->> workspace
-       schema
-       (filter :Creatable)))
 
 (defn read-page [scope type page-number]
   (let [params {:fetch     true
