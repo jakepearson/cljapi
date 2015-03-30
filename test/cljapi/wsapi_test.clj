@@ -1,9 +1,15 @@
 (ns cljapi.wsapi-test
   (:require [cljapi.wsapi :as wsapi]
-            [clojure.test :refer :all]))
+            [clojure.test :refer :all]
+            [cletus.config :as config]))
 
-(def the-scope (delay (-> (wsapi/workspaces) first wsapi/scope)))
-(def the-schema (delay (-> (wsapi/schema @the-scope))))
+(def the-env
+  (delay
+   (let [auth-key (config/string "RALLY_API_KEY")
+         env      {:auth-key auth-key}]
+     (assoc env :workspace (-> (wsapi/workspaces env) first)))))
+
+(def the-schema (delay (-> (wsapi/schema @the-env)))) 
 
 (deftest ->ref
   (let [ref "/slm/webservice/v2.0/defect"]
@@ -23,12 +29,12 @@
     (is (= full-ref (wsapi/->full-ref ref)))))
 
 (deftest user
-  (let [user (wsapi/user)]
+  (let [user (wsapi/user @the-env)]
     (is (:FirstName user))
     (is (:LastName user))))
 
 (deftest subscription
-  (let [subscription (wsapi/subscription)]
+  (let [subscription (wsapi/subscription @the-env)]
     (is (:Name subscription))
     (is (:SubscriptionID subscription))))
 
@@ -36,7 +42,7 @@
   (is (= 123 (wsapi/->oid {:ObjectID 123}))))
 
 (deftest workspaces
-  (let [workspaces (wsapi/workspaces)
+  (let [workspaces (wsapi/workspaces @the-env)
         workspace (first workspaces)]
     (is (vector? workspaces))
     (is (:Subscription workspace))

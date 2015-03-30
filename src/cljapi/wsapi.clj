@@ -4,19 +4,21 @@
             [cletus.utils :as utils]
             [clojure.string :as string]))
 
-(def api-key (memoize #(config/string "RALLY_API_KEY")))
-(defn host-name [] "https://rally1.rallydev.com")
-(defn page-size [] 100)
-
 (defn body [response]
   (-> response
       :body
       utils/->map))
 
-(defn call [options]
-  (let [response (-> options
-                     (assoc-in [:headers :zsessionid] (api-key))
-                     (assoc :hostname "https://rally1.rallydev.com")
+(defn- apply-default-env [env]
+  (merge {:hostname "https://rally1.rallydev.com"
+          :pagesize 100}
+         env))
+
+(defn call [env options]
+  (let [env      (apply-default-env env)
+        response (-> options
+                     (assoc-in [:headers :zsessionid] (:auth-key env))
+                     (assoc :hostname (:hostname env))
                      http/call
                      deref)
         body     (body response)]
@@ -25,9 +27,9 @@
       response)))
 
 (defn read-ref
-  ([uri] (read-ref uri nil))
-  ([uri query-parameters]
-   (let [response  (-> (call (assoc {:uri uri} :query-params query-parameters))
+  ([env uri] (read-ref env uri nil))
+  ([env uri query-parameters]
+   (let [response  (-> (call env (assoc {:uri uri} :query-params query-parameters))
                        :body)
          first-key (-> response keys first)]
      (get response first-key))))
@@ -50,45 +52,45 @@
   ([value oid]
    (str (->full-ref value) "/" oid)))
 
-(defn user []
-  (read-ref (->ref :user)))
+(defn user [env]
+  (read-ref env (->ref :user)))
 
-(defn subscription []
-  (read-ref (->ref :subscription)))
+(defn subscription [env]
+  (read-ref env (->ref :subscription)))
 
 (defn ->oid [value]
   (:ObjectID value))
 
-(defn workspaces []
-  (let [subscription   (-> :subscription ->ref read-ref)
+(defn workspaces [env]
+  (let [subscription   (->> :subscription ->ref (read-ref env))
         workspace-refs (->ref (:Workspaces subscription))]
-    (->> (read-ref workspace-refs)
+    (->> (read-ref env workspace-refs)
          :Results)))
 
-(defn schema [scope]
-  (let [workspace-oid (->oid (:workspace scope))]
-    (-> (read-ref (str "/slm/schema/v2.0/workspace/" workspace-oid))
+(defn schema [env]
+  (let [workspace-oid (->oid (:workspace env))]
+    (-> (read-ref env (str "/slm/schema/v2.0/workspace/" workspace-oid))
         :Results)))
 
 (defn scope [workspace]
   {:workspace workspace})
 
-(defn read-page [scope type page-number]
+(defn read-page [env type page-number]
   (let [params {:fetch     true
-                :workspace (->full-ref (:workspace scope))
+                :workspace (->full-ref (:workspace env))
                 :start     (inc (* page-number (page-size)))
                 :pagesize  (page-size)}]
     (-> (read-ref (->ref type) params)
         :Results)))
 
 (defn read-all
-  ([scope type] (read-all scope type 1))
-  ([scope type page-number]
-   (let [page (read-page scope type page-number)]
+  ([env type] (read-all env type 1))
+  ([env type page-number]
+   (let [page (read-page env type page-number)]
      (when (< 0 (count page))
-       (read-all scope type page-number page))))
-  ([scope type page-number page]
+       (read-all env type page-number page))))
+  ([env type page-number page]
    (let [[head & rest] page]
      (if head
-       (cons head (lazy-seq (read-all scope type page-number rest)))
-       (read-all scope type (inc page-number))))))
+       (cons head (lazy-seq (read-all env type page-number rest)))
+       (read-all env type (inc page-number))))))

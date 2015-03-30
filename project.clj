@@ -1,4 +1,4 @@
-(defproject cljapi "0.1.0-SNAPSHOT"
+ (defproject cljapi "0.1.0-SNAPSHOT"
   :repositories [["rally" "http://alm-build.f4tech.com:8080/nexus/content/groups/public"]
                  ["3rd"   "http://alm-build.f4tech.com:8080/nexus/content/repositories/thirdparty"]
                  ["snapshots" {:url "http://alm-build.f4tech.com:8080/nexus/content/groups/public-snapshots"}]
