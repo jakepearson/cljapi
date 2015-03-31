@@ -6,27 +6,30 @@
 (def the-env
   (delay
    (let [auth-key (config/string "RALLY_API_KEY")
-         env      {:auth-key auth-key}]
+         env      {:auth-key auth-key
+                   :hostname "https://rally1.rallydev.com"}]
      (assoc env :workspace (-> (wsapi/workspaces env) first)))))
 
 (def the-schema (delay (-> (wsapi/schema @the-env)))) 
 
 (deftest ->ref
-  (let [ref "/slm/webservice/v2.0/defect"]
-    (is (= ref (wsapi/->ref :defect)))
-    (is (= ref (wsapi/->ref (str (wsapi/host-name) ref))))
-    (is (= (str ref "/123") (wsapi/->ref :defect 123)))
-    (is (= ref (wsapi/->ref {:_ref ref})))
-    (is (= ref (wsapi/->ref ref)))))
+  (let [ref "/slm/webservice/v2.0/defect"
+        env {:hostname "https://rally1.rallydev.com"}]
+    (is (= ref (wsapi/->ref env :defect)))
+    (is (= ref (wsapi/->ref env (str (:hostname env) ref))))
+    (is (= (str ref "/123") (wsapi/->ref env :defect 123)))
+    (is (= ref (wsapi/->ref env {:_ref ref})))
+    (is (= ref (wsapi/->ref env ref)))))
 
 (deftest ->full-ref
   (let [ref      "/slm/webservice/v2.0/defect"
-        full-ref (str (wsapi/host-name) ref)]
-    (is (= full-ref (wsapi/->full-ref :defect)))
-    (is (= full-ref (wsapi/->full-ref (str (wsapi/host-name) ref))))
-    (is (= (str full-ref "/123") (wsapi/->full-ref :defect 123)))
-    (is (= full-ref (wsapi/->full-ref {:_ref ref})))
-    (is (= full-ref (wsapi/->full-ref ref)))))
+        env      {:hostname "https://rally1.rallydev.com"}
+        full-ref (str (:hostname env) ref)]
+    (is (= full-ref (wsapi/->full-ref env :defect)))
+    (is (= full-ref (wsapi/->full-ref env (str (:hostname env) ref))))
+    (is (= (str full-ref "/123") (wsapi/->full-ref env :defect 123)))
+    (is (= full-ref (wsapi/->full-ref env {:_ref ref})))
+    (is (= full-ref (wsapi/->full-ref env ref)))))
 
 (deftest user
   (let [user (wsapi/user @the-env)]

@@ -11,7 +11,7 @@
 
 (defn- apply-default-env [env]
   (merge {:hostname "https://rally1.rallydev.com"
-          :pagesize 100}
+          :page-size 100}
          env))
 
 (defn call [env options]
@@ -34,36 +34,41 @@
          first-key (-> response keys first)]
      (get response first-key))))
 
+(defn translate-type [type]
+  (if (= :UserStory type)
+    :HierarchicalRequirement
+    type))
+
 (defn ->ref
-  ([value]
+  ([env value]
    (let [url (cond
                (string? value)  value
-               (keyword? value) (str "/slm/webservice/v2.0/" (name value))
+               (keyword? value) (str "/slm/webservice/v2.0/" (-> value translate-type name))
                :default         (:_ref value))]
-     (string/replace url (host-name) "")))
-  ([value oid]
-   (str (->ref value) "/" oid)))
+     (string/replace url (:hostname env) "")))
+  ([env value oid]
+   (str (->ref env value) "/" oid)))
 
 (defn ->full-ref
-  ([value]
+  ([env value]
    (->> value
-        ->ref
-        (str (host-name))))
-  ([value oid]
-   (str (->full-ref value) "/" oid)))
+        (->ref env)
+        (str (:hostname env))))
+  ([env value oid]
+   (str (->full-ref env value) "/" oid)))
 
 (defn user [env]
-  (read-ref env (->ref :user)))
+  (read-ref env (->ref env :user)))
 
 (defn subscription [env]
-  (read-ref env (->ref :subscription)))
+  (read-ref env (->ref env :subscription)))
 
 (defn ->oid [value]
   (:ObjectID value))
 
 (defn workspaces [env]
-  (let [subscription   (->> :subscription ->ref (read-ref env))
-        workspace-refs (->ref (:Workspaces subscription))]
+  (let [subscription   (->> (subscription env) (->ref env) (read-ref env))
+        workspace-refs (->ref env (:Workspaces subscription))]
     (->> (read-ref env workspace-refs)
          :Results)))
 
@@ -72,15 +77,13 @@
     (-> (read-ref env (str "/slm/schema/v2.0/workspace/" workspace-oid))
         :Results)))
 
-(defn scope [workspace]
-  {:workspace workspace})
-
 (defn read-page [env type page-number]
-  (let [params {:fetch     true
-                :workspace (->full-ref (:workspace env))
-                :start     (inc (* page-number (page-size)))
-                :pagesize  (page-size)}]
-    (-> (read-ref (->ref type) params)
+  (let [page-size {:page-size env}
+        params    {:fetch     true
+                   :workspace (->full-ref env (:workspace env))
+                   :start     (inc (* page-number (:page-size env)))
+                   :pagesize  page-size}]
+    (-> (read-ref env (->ref env type) params)
         :Results)))
 
 (defn read-all
